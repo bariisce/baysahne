@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: baysahne-backend
+Version: 0.1.0
+Summary: Bay Sahne API, admin backend and notification worker
+Requires-Python: >=3.12
+Requires-Dist: fastapi==0.143.2
+Requires-Dist: uvicorn[standard]==0.54.0
+Requires-Dist: sqlalchemy==2.1.4
+Requires-Dist: alembic==1.20.0
+Requires-Dist: psycopg[binary]==3.3.6
+Requires-Dist: pydantic==2.14.1
+Requires-Dist: pydantic-settings==2.16.0
+Requires-Dist: argon2-cffi==25.1.0
+Requires-Dist: email-validator==2.3.0
+Requires-Dist: pillow==12.3.0
+Requires-Dist: httpx==0.28.1
+Requires-Dist: python-multipart==0.0.32
+Requires-Dist: tzdata>=2025.2
+Provides-Extra: s3
+Requires-Dist: boto3==1.43.114; extra == "s3"
+Provides-Extra: dev
+Requires-Dist: pytest==9.1.1; extra == "dev"
+Requires-Dist: ruff==0.17.1; extra == "dev"
+Requires-Dist: boto3==1.43.114; extra == "dev"

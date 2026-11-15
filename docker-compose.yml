@@ -1,0 +1,72 @@
+# Local development stack. Production deployment is described in docs/DEPLOYMENT.md.
+# Usage:
+#   docker compose up -d db                 # just Postgres (run api/worker/admin natively)
+#   docker compose --profile full up -d     # everything in containers
+name: baysahne
+
+services:
+  db:
+    image: postgres:16-alpine
+    # Come back by itself whenever Docker starts (after a reboot or a Docker Desktop restart); without
+    # this the container stays stopped and every API request answers 503.
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-baysahne}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-baysahne_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-baysahne}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    profiles: ["full"]
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-baysahne}:${POSTGRES_PASSWORD:-baysahne_dev_only}@db:5432/${POSTGRES_DB:-baysahne}
+      MEDIA_LOCAL_ROOT: /data/media
+    command: ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8100 --proxy-headers"]
+    ports:
+      - "127.0.0.1:8100:8100"
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    profiles: ["full"]
+    build: ./backend
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-baysahne}:${POSTGRES_PASSWORD:-baysahne_dev_only}@db:5432/${POSTGRES_DB:-baysahne}
+      MEDIA_LOCAL_ROOT: /data/media
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+  admin:
+    profiles: ["full"]
+    build:
+      context: ./admin
+      args:
+        BACKEND_INTERNAL_URL: http://api:8100
+        MEDIA_PUBLIC_ORIGIN: http://localhost:8100
+    ports:
+      - "127.0.0.1:3100:3100"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  media:

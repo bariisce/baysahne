@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "C:\\Users\\Rea\\Desktop\\baysahne\\backend\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.main:app", "--port", "8100", "--app-dir", "C:\\Users\\Rea\\Desktop\\baysahne\\backend"],
+      "cwd": "C:\\Users\\Rea\\Desktop\\baysahne\\backend",
+      "port": 8100
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "C:\\Users\\Rea\\Desktop\\baysahne\\admin"],
+      "port": 3100
+    },
+    {
+      "name": "mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--prefix", "C:\\Users\\Rea\\Desktop\\baysahne\\mobile", "expo", "start", "--web", "--port", "8081"],
+      "cwd": "C:\\Users\\Rea\\Desktop\\baysahne\\mobile",
+      "port": 8081
+    }
+  ]
+}
