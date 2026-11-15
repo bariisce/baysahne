@@ -96,7 +96,8 @@ def main() -> int:
     b.add_argument("--name", required=True)
     b.add_argument("--force", action="store_true", help="allow even if an admin exists (break-glass)")
     i = sub.add_parser("import-content")
-    i.add_argument("--source", default=None, help="folder containing the .docx and media files")
+    i.add_argument("--source", default=None,
+                   help="folder holding the .docx, with the images anywhere below it (default: <repo>/content)")
     i.add_argument("--report", default=None, help="where to write the Markdown import report")
     args = p.parse_args()
     if args.cmd == "bootstrap-admin":

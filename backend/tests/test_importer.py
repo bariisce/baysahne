@@ -3,8 +3,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import func, select
 
-from app.config import REPO_ROOT
-from app.importer.run import DOCX_NAME, import_content, write_report
+from app.importer.run import CONTENT_DIR, DOCX_NAME, import_content, write_report
 from app.models import (
     LegalDocument,
     MediaAsset,
@@ -16,7 +15,7 @@ from app.models import (
     Visibility,
 )
 
-SOURCE = REPO_ROOT
+SOURCE = CONTENT_DIR
 pytestmark = pytest.mark.skipif(not (SOURCE / DOCX_NAME).is_file(), reason="source document not present")
 
 
@@ -34,6 +33,9 @@ def test_import_is_complete_and_idempotent(db, client, tmp_path: Path):
     assert first["Performance"] == 0 and first["NotificationJob"] == 0  # nothing invented, nothing sent
     assert first["LegalDocument"] == 4
     assert {f["file"] for f in rep.missing_assets} == {f"r&jpic{i}.svg" for i in range(2, 12)}
+    # Images live in per-production folders; the document still finds each one by its bare name.
+    assert rep.unreferenced_assets == ["baysahnelogo2.svg"]
+    assert rep.renamed_assets == [("bygrbaysahne.svg", "bygrbaysahne.jpeg")]
 
     rep2 = import_content(db, SOURCE)
     db.commit()

@@ -1,4 +1,4 @@
-"""Idempotent initial-content import from `BAY SAHNE BİLGİLER.docx` + the supplied media folder.
+"""Idempotent initial-content import from `content/BAY SAHNE BİLGİLER.docx` + the images under `content/media`.
 
 Re-running is safe:
 - productions, venue, legal texts and the organisation profile are keyed by stable `import_key`s and are
@@ -44,6 +44,8 @@ from app.models import (
 )
 from app.services.media import store_image
 
+# The supplied source material: the document at the top, images anywhere below it (content/media/<production>/).
+CONTENT_DIR = REPO_ROOT / "content"
 DOCX_NAME = "BAY SAHNE BİLGİLER.docx"
 ORG_LOGO_FILE = "baysahnelogo1.svg"  # current wordmark; identical asset is served as the logo on baysahne.com
 
@@ -110,21 +112,43 @@ RENAMED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".webp")
 IMAGE_EXTENSIONS = {".svg", *RENAMED_EXTENSIONS}
 
 
-def resolve_asset(folder: Path, name: str) -> Path | None:
+def media_index(folder: Path) -> dict[str, Path]:
+    """Every image under the source folder, keyed by file name.
+
+    The document refers to images by bare file name, so sub-folders (one per production, see content/media)
+    only organise the files and may be rearranged freely. For the same reason a name must be unique.
+    """
+    index: dict[str, Path] = {}
+    for path in sorted(folder.rglob("*")):
+        if path.suffix.lower() not in IMAGE_EXTENSIONS or not path.is_file():
+            continue
+        if path.name in index:
+            raise ValueError(
+                f"Two source images are named '{path.name}': {index[path.name].relative_to(folder)} and "
+                f"{path.relative_to(folder)}. The document refers to images by name; rename or remove one."
+            )
+        index[path.name] = path
+    return index
+
+
+def find_asset(index: dict[str, Path], name: str) -> Path | None:
     """The file the document refers to: the exact name, else the same name with a real image extension."""
-    exact = folder / name
-    if exact.is_file():
-        return exact
+    if name in index:
+        return index[name]
     stem = Path(name).stem
     for ext in RENAMED_EXTENSIONS:
-        for candidate in (folder / f"{stem}{ext}", folder / f"{stem}{ext.upper()}"):
-            if candidate.is_file():
-                return candidate
+        for candidate in (f"{stem}{ext}", f"{stem}{ext.upper()}"):
+            if candidate in index:
+                return index[candidate]
     return None
 
 
-def _load_media(db: Session, folder: Path, name: str, rep: Report, where: str, used: set[str]):
-    path = resolve_asset(folder, name)
+def resolve_asset(folder: Path, name: str) -> Path | None:
+    return find_asset(media_index(folder), name)
+
+
+def _load_media(db: Session, index: dict[str, Path], name: str, rep: Report, where: str, used: set[str]):
+    path = find_asset(index, name)
     if path is None:
         rep.missing_assets.append({"production": where, "file": name})
         return None
@@ -147,6 +171,7 @@ def _load_media(db: Session, folder: Path, name: str, rep: Report, where: str, u
 def import_content(db: Session, folder: Path) -> Report:
     rep = Report(started_at=utcnow().isoformat())
     doc = src.parse(folder / DOCX_NAME)
+    media = media_index(folder)
     rep.source_sha256 = doc.sha256
     tlog: list[src.Transform] = []
     used_files: set[str] = set()
@@ -202,9 +227,9 @@ def import_content(db: Session, folder: Path) -> Report:
         poster = None
         gallery = []
         if sp.poster_ref:
-            poster = _load_media(db, folder, sp.poster_ref, rep, title, used_files)
+            poster = _load_media(db, media, sp.poster_ref, rep, title, used_files)
         for ref in sp.gallery_refs:
-            asset = _load_media(db, folder, ref, rep, title, used_files)
+            asset = _load_media(db, media, ref, rep, title, used_files)
             if asset and asset.id not in {a.id for a in gallery}:
                 gallery.append(asset)
 
@@ -237,7 +262,7 @@ def import_content(db: Session, folder: Path) -> Report:
     if not db.get(OrganizationProfile, 1):
         about = _about(doc.about_paragraphs, tlog)
         phones = [x.strip() for x in org_fields.get("telefon", "").split(",") if x.strip()]
-        logo = _load_media(db, folder, ORG_LOGO_FILE, rep, "Kurum logosu", used_files)
+        logo = _load_media(db, media, ORG_LOGO_FILE, rep, "Kurum logosu", used_files)
         db.add(OrganizationProfile(
             id=1, name=org_fields.get("unvan", "Bay Sahne"), short_name="Bay Sahne", address=address,
             phones=phones, email=org_fields.get("e-posta"), website_url=org_fields.get("web"),
@@ -260,10 +285,8 @@ def import_content(db: Session, folder: Path) -> Report:
                              review_note=LEGAL_REVIEW_NOTE, import_key=key))
         rep.created.append(f"Legal text (draft): {title}")
 
-    # ---- unreferenced files in the folder
-    for f in sorted(folder.iterdir()):
-        if f.suffix.lower() in IMAGE_EXTENSIONS and f.name not in used_files:
-            rep.unreferenced_assets.append(f.name)
+    # ---- supplied images the document never mentions
+    rep.unreferenced_assets += sorted(name for name in media if name not in used_files)
 
     rep.transforms = [asdict(t) for t in tlog]
     rep.notes += [{"production": t, "note": n} for t, n in KNOWN_SOURCE_NOTES]
@@ -304,7 +327,7 @@ def _about(paras: list[src.Paragraph], tlog: list[src.Transform]) -> dict:
 
 
 def main(source: str | None, report: str | None) -> int:
-    folder = Path(source) if source else REPO_ROOT
+    folder = Path(source) if source else CONTENT_DIR
     if not (folder / DOCX_NAME).is_file():
         print(f"Source document not found: {folder / DOCX_NAME}", file=sys.stderr)
         return 1

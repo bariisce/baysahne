@@ -53,7 +53,7 @@ Store secrets in the platform's secret manager, never in the repository or image
    - admin login
    - **Bildirimler** shows “Gerçek gönderim”
 7. First deployment only:
-   - `python -m app.cli import-content --source <folder with docx+media>`
+   - `python -m app.cli import-content --source <copy of the repository's content/ folder>` (the backend image does not contain `content/`; mount or copy it for this one run)
    - `python -m app.cli bootstrap-admin --email <you> --name "<name>"`
 
 Rollback: redeploy the previous image tag. Migrations are additive in v1; if a future migration is destructive, document its downgrade before release.

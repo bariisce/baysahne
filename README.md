@@ -7,7 +7,7 @@ Turkish-language mobile app, admin panel and API for **Baysahne Performans Atöl
 | API + notification worker | [`backend/`](backend) | Python 3.13, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 16 |
 | Admin panel | [`admin/`](admin) | Next.js 16 (App Router), React 19, TypeScript |
 | Audience app | [`mobile/`](mobile) | Expo SDK 58, Expo Router, React Native 0.88, TypeScript |
-| Source content | repository root | `BAY SAHNE BİLGİLER.docx` + supplied media (`*.svg`, which are really JPEG/PNG/WebP) |
+| Source content | `content/` | `BAY SAHNE BİLGİLER.docx` + supplied media in `content/media/<production>/` (`*.svg`, which are really JPEG/PNG/WebP) |
 
 Out of scope for v1 (by design): ticket sales, payments, seat maps, QR tickets, user accounts, reviews and recommendations.
 
